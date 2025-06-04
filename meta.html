@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Worker Runtime</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        #loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Executing worker script...</div>
+
+    <script>
+        // Mock ExecutionContext
+        class MockExecutionContext {
+            constructor() {
+                this.promises = [];
+            }
+
+            waitUntil(promise) {
+                this.promises.push(promise);
+                return promise;
+            }
+        }
+
+        // Mock Environment (from localStorage)
+        function getEnv() {
+            try {
+                const envData = localStorage.getItem('env');
+                return envData ? JSON.parse(envData) : {};
+            } catch (e) {
+                console.warn('Failed to parse env from localStorage:', e);
+                return {};
+            }
+        }
+
+        // Create Request object from current window location
+        function createRequest() {
+            const url = window.location.href;
+            const method = 'GET'; // Could be enhanced to detect actual method
+
+            // Try to reconstruct headers (limited in browser context)
+            const headers = new Headers({
+                'User-Agent': navigator.userAgent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': navigator.language,
+            });
+
+            return new Request(url, {
+                method,
+                headers
+            });
+        }
+
+        // Execute the worker script
+        async function executeWorker() {
+            try {
+                const request = createRequest();
+                const env = getEnv();
+                const ctx = new MockExecutionContext();
+
+                console.log('Executing worker with:', { request, env, ctx });
+
+                const response = await workerScript(request, env, ctx);
+                const content = await response.text();
+
+                // Replace page content with worker response
+                document.body.innerHTML = content;
+
+                // Update page title if HTML response
+                const contentType = response.headers.get('Content-Type') || '';
+                if (contentType.includes('text/html')) {
+                    const titleMatch = content.match(/<title>(.*?)<\/title>/i);
+                    if (titleMatch) {
+                        document.title = titleMatch[1];
+                    }
+                }
+
+            } catch (error) {
+                console.error('Worker execution failed:', error);
+                document.body.innerHTML = `
+                    <h1>Worker Error</h1>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;">\${error.message}</pre>
+                    <p><a href="javascript:location.reload()">Reload</a></p>
+                `;
+            }
+        }
+
+        // Auto-execute when page loads
+        executeWorker();
+    </script>
+</body>
+
+</html>
