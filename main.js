@@ -1,7 +1,8 @@
 import meta from "./meta.html";
 
-const workerScript = `// THE WORKER SCRIPT TO EXECUTE
-    // This is where you'd dynamically inject different scripts
+// THE WORKER SCRIPT TO EXECUTE
+// This is where you'd dynamically inject different scripts
+const workerScript = `
     const workerScript = async (request, env, ctx) => {
       const url = new URL(request.url);
       const path = url.pathname;
