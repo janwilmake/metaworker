@@ -11,3 +11,7 @@ The idea would be:
 Limitations:
 
 Although this is great for HTML, this wouldn't yet allow returning anything else as a direct response from an endpoint. JSON gets loaded in a `<pre>` tag now, and this is obviously not great! However, when provided with proper instructions this could give a way to create simple workers that output HTML on a specific path structure. This is already quite useful because it allows for instant testing of your worker!
+
+Subdomain setup:
+
+besides the setup in wrangler toml, we needed a `AAAA` DNS record for `*` leading to `100::` to make subdomains all loead to the worker.

@@ -4,5 +4,12 @@ compatibility_date = "2025-06-01"
 
 dev.port = 3000
 routes = [
-  { pattern = "metaworker.evaloncloud.com", custom_domain = true }
+  { pattern = "aidreamworker.com", custom_domain = true },
+  { pattern = "*.aidreamworker.com/*", custom_domain = false }
 ]
+
+
+
+[[kv_namespaces]]
+binding = "SCRIPTS"
+id = "82f2831f566147df80f4e164f792f11a"

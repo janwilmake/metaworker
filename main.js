@@ -1,89 +1,124 @@
 import meta from "./meta.html";
+import form from "./form.html";
 
-// THE WORKER SCRIPT TO EXECUTE
-// This is where you'd dynamically inject different scripts
-const workerScript = `
-    const workerScript = async (request, env, ctx) => {
-      const url = new URL(request.url);
-      const path = url.pathname;
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const hostname = url.hostname;
 
-      // Example routing logic
-      if (path === "/api/hello") {
-        return new Response(
-          JSON.stringify({
-            message: "Hello from JS Worker!",
-            timestamp: new Date().toISOString(),
-            path: path,
-            userAgent: request.headers.get("User-Agent"),
-          }),
-          {
-            headers: { "Content-Type": "application/json" },
-          },
-        );
+    // Check if we're on a subdomain or root domain
+    const isSubdomain = hostname.split(".").length > 2; // e.g., "script.metaworker.evaloncloud.com"
+
+    if (!isSubdomain) {
+      // ROOT DOMAIN - Show form or handle /put endpoint
+
+      if (url.pathname === "/put" && request.method === "POST") {
+        // Handle script upload
+        try {
+          const formData = await request.formData();
+          const script = formData.get("script");
+          const subdomain = formData.get("subdomain");
+
+          if (!script || !subdomain) {
+            return new Response("Missing script or subdomain", { status: 400 });
+          }
+
+          // Validate subdomain format (basic validation)
+          if (!/^[a-zA-Z0-9-]+$/.test(subdomain)) {
+            return new Response("Invalid subdomain format", { status: 400 });
+          }
+
+          // Store script in KV with subdomain as key
+          await env.SCRIPTS.put(subdomain, script);
+
+          return new Response(
+            `
+            <html>
+              <head><title>Script Uploaded</title></head>
+              <body>
+                <h1>✅ Script Uploaded Successfully!</h1>
+                <p>Your script has been saved for subdomain: <strong>${subdomain}</strong></p>
+                <p>Visit: <a href="https://${subdomain}.${hostname}" target="_blank">https://${subdomain}.${hostname}</a></p>
+                <br>
+                <a href="/">← Back to form</a>
+              </body>
+            </html>
+          `,
+            {
+              headers: { "Content-Type": "text/html;charset=utf8" },
+            },
+          );
+        } catch (error) {
+          return new Response(`Error: ${error.message}`, { status: 500 });
+        }
       }
 
-      if (path === "/api/env") {
-        return new Response(
-          JSON.stringify({
-            env: env,
-            availableKeys: Object.keys(env),
-          }),
-          {
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
+      // Show the form for root domain
+      return new Response(form, {
+        headers: { "Content-Type": "text/html;charset=UTF-8" },
+      });
+    } else {
+      // SUBDOMAIN - Load script from KV and render with meta.html
 
-      if (path.startsWith("/api/echo/")) {
-        const message = path.split("/api/echo/")[1];
+      const subdomain = hostname.split(".")[0]; // Extract subdomain part
+
+      try {
+        // Get script from KV
+        const workerScript = await env.SCRIPTS.get(subdomain);
+
+        if (!workerScript) {
+          return new Response(
+            `
+            <html>
+              <head><title>Script Not Found</title></head>
+              <body>
+                <h1>❌ Script Not Found</h1>
+                <p>No script found for subdomain: <strong>${subdomain}</strong></p>
+                <p>Go to <a href="https://${hostname
+                  .split(".")
+                  .slice(1)
+                  .join(".")}">the main domain</a> to upload a script.</p>
+              </body>
+            </html>
+          `,
+            {
+              status: 404,
+              headers: { "Content-Type": "text/html;charset=utf8" },
+            },
+          );
+        }
+
+        // Inject the script into meta.html
+        const htmlWithScript = meta.replace(
+          "<script>",
+          `<script>\nconst workerScript = ${workerScript};\n`,
+        );
+
+        return new Response(htmlWithScript, {
+          headers: { "Content-Type": "text/html;charset=UTF-8" },
+        });
+      } catch (error) {
         return new Response(
-          \`
-                    <html><head><title>My website</title></head><body>
-                    <h1>Echo Response</h1>
-                    <p>You said: <strong>\${decodeURIComponent(message)}</strong></p>
-                    <p>Current time: \${new Date().toLocaleString()}</p>
-                    <p>Request URL: \${request.url}</p>
-                    <hr>
-                    <a href="/api/hello">Try /api/hello</a> | 
-                    <a href="/api/env">Try /api/env</a> |
-                    <a href="/api/echo/test%20message">Try /api/echo/test message</a>
-                    </body></html>
-                \`,
+          `
+          <html>
+            <head><title>Error</title></head>
+            <body>
+              <h1>⚠️ Error Loading Script</h1>
+              <p>Failed to load script for subdomain: <strong>${subdomain}</strong></p>
+              <p>Error: ${error.message}</p>
+              <p>Go to <a href="https://${hostname
+                .split(".")
+                .slice(1)
+                .join(".")}">the main domain</a> to manage scripts.</p>
+            </body>
+          </html>
+        `,
           {
+            status: 500,
             headers: { "Content-Type": "text/html" },
           },
         );
       }
-
-      // Default response
-      return new Response(
-        \`
-                <html><head><title>My website</title></head><body>
-                <h1>JS Worker Runtime</h1>
-                <p>Current path: <code>\${path}</code></p>
-                <p>Available endpoints:</p>
-                <ul>
-                    <li><a href="/api/hello">/api/hello</a> - JSON response</li>
-                    <li><a href="/api/env">/api/env</a> - Environment variables</li>
-                    <li><a href="/api/echo/your-message">/api/echo/your-message</a> - Echo service</li>
-                </ul>
-                <hr>
-                <p><small>This page was generated by a JavaScript function running in your browser, 
-                simulating a Cloudflare Worker!</small></p>
-                </body></html>
-            \`,
-        {
-          headers: { "Content-Type": "text/html" },
-        },
-      );
-    };`;
-
-export default {
-  async fetch(request, env, ctx) {
-    return new Response(meta.replace("<script>", "<script>\n" + workerScript), {
-      headers: {
-        "Content-Type": "text/html;charset=UTF-8",
-      },
-    });
+    }
   },
 };
