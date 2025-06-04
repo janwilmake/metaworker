@@ -76,16 +76,20 @@
                 const response = await workerScript(request, env, ctx);
                 const content = await response.text();
 
-                // Replace page content with worker response
-                document.body.innerHTML = content;
-
                 // Update page title if HTML response
                 const contentType = response.headers.get('Content-Type') || '';
+                console.log({ contentType })
                 if (contentType.includes('text/html')) {
-                    const titleMatch = content.match(/<title>(.*?)<\/title>/i);
-                    if (titleMatch) {
-                        document.title = titleMatch[1];
-                    }
+                    // Replace entire document
+                    console.log("REPLACING ALL");
+
+                    document.open()
+                    document.write(...content.split("\n"));
+                    document.close();
+
+                } else {
+                    // For non-HTML content, just replace body
+                    document.body.innerHTML = `<pre>${content}</pre>`;
                 }
 
             } catch (error) {
@@ -99,7 +103,9 @@
         }
 
         // Auto-execute when page loads
-        executeWorker();
+        document.addEventListener("DOMContentLoaded", () => {
+            executeWorker()
+        })
     </script>
 </body>
 
