@@ -28,6 +28,11 @@ export default {
             return new Response("Invalid subdomain format", { status: 400 });
           }
 
+          const already = await env.SCRIPTS.get(subdomain);
+          if (already) {
+            return new Response("Subdomain already taken", { status: 400 });
+          }
+
           // Store script in KV with subdomain as key
           await env.SCRIPTS.put(subdomain, script);
 

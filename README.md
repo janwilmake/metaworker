@@ -10,7 +10,8 @@ The idea would be:
 
 Limitations:
 
-Although this is great for HTML, this wouldn't yet allow returning anything else as a direct response from an endpoint. JSON gets loaded in a `<pre>` tag now, and this is obviously not great! However, when provided with proper instructions this could give a way to create simple workers that output HTML on a specific path structure. This is already quite useful because it allows for instant testing of your worker!
+- Although this is great for HTML, this wouldn't yet allow returning anything else as a direct response from an endpoint. JSON gets loaded in a `<pre>` tag now, and this is obviously not great! However, when provided with proper instructions this could give a way to create simple workers that output HTML on a specific path structure. This is already quite useful because it allows for instant testing of your worker!
+- I also found that a submited `</script>` turns into EOF so we need a way to escape that
 
 Subdomain setup:
 
